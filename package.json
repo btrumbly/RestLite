@@ -1,0 +1,20 @@
+{
+  "name": "rest-lite",
+  "version": "1.0.0",
+  "description": "A light weight NodeJS restful API Server.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Brian Trumbly",
+  "license": "ISC",
+  "homepage": "https://github.com/btrumbly/RestLite.git",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/btrumbly/RestLite.git"
+  },
+  "dependencies": {
+    "content-type": "1.0.4",
+    "raw-body": "2.3.2"
+  }
+}
