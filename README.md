@@ -11,7 +11,7 @@ npm install rest-lite
 ## Example
 
 ```
-const { RestLite } = require("restLite");
+const RestLite = require("rest-lite");
 
 const server = new RestLite();
 
@@ -73,6 +73,7 @@ server
 ## Guards
 Guards are functions used to safeguard call and controllers. A guard is a function that takes in a http request and returns a boolean. If ``true`` the guard allows the request to go through. Guards should be async functions. you can have multiple guards. 
 ```
+const RestLite = require("rest-lite");
 const server = new RestLite();
 
 const authenticated = (req) => {
@@ -90,6 +91,7 @@ server.setGuard(authenticated);
 ## Whitelist
 White list are routes that bypass the any guards set.
 ```
+const RestLite = require("rest-lite");
 const server = new RestLite();
 
 // Set whitelisted URL paths
@@ -106,7 +108,7 @@ server.setWhitelists([
 ```
 require("dotenv").config();
 
-const { RestLite } = require("../lib/RestLite");
+const RestLite = require("rest-lite");
 const { authenticated } = require("../lib/authority");
 
 server = new RestLite();

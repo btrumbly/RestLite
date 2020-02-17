@@ -1,1 +1,2 @@
-require("./src/restLight");
+const RestLite = require("./src/restLight");
+module.exports = RestLite;
