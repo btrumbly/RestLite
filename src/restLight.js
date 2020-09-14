@@ -22,7 +22,7 @@ class RestLite {
       responseType: "json",
       host: null,
       port: 3000,
-      serviceName: "RestLight Server"
+      serviceName: "RestLight Server",
     };
   }
 
@@ -41,13 +41,14 @@ class RestLite {
       .listen(this._config.port || 3000, this._config.host);
 
     console.log(
-      `${this._config.serviceName || "RestLight Server"} running \n Host: ${this
-        ._config.host || "localhost"} \n Port: ${this._config.port || 3000}`
+      `${this._config.serviceName || "RestLight Server"} running \n Host: ${
+        this._config.host || "localhost"
+      } \n Port: ${this._config.port || 3000}`
     );
 
     server.on("request", async (req, res) => {
       try {
-        _this._headers.forEach(h => {
+        _this._headers.forEach((h) => {
           res.setHeader(h[0], h[1]);
         });
 
@@ -64,7 +65,7 @@ class RestLite {
         let whiteListed = false;
 
         // Add custom response methods to http.ServerResponse
-        res.__proto__.SendResponse = function(data, code) {
+        res.__proto__.SendResponse = function (data, code) {
           if (!data) {
             this.statusCode = code;
             this.end();
@@ -79,48 +80,48 @@ class RestLite {
           }
         };
 
-        res.__proto__.Continue = function(data) {
+        res.__proto__.Continue = function (data) {
           this.statusCode = 100;
           this.SendResponse(data, 100);
         };
 
-        res.__proto__.OK = function(data) {
+        res.__proto__.OK = function (data) {
           this.SendResponse(data, 200);
         };
 
-        res.__proto__.Created = function(data) {
+        res.__proto__.Created = function (data) {
           this.SendResponse(data, 201);
         };
 
-        res.__proto__.NoContent = function(data) {
+        res.__proto__.NoContent = function (data) {
           this.SendResponse(data, 204);
         };
 
-        res.__proto__.Moved = function(data) {
+        res.__proto__.Moved = function (data) {
           this.SendResponse(data, 301);
         };
 
-        res.__proto__.Found = function(data) {
+        res.__proto__.Found = function (data) {
           this.SendResponse(data, 302);
         };
 
-        res.__proto__.Bad = function(data) {
+        res.__proto__.Bad = function (data) {
           this.SendResponse(data, 400);
         };
 
-        res.__proto__.Unauthorized = function(data) {
+        res.__proto__.Unauthorized = function (data) {
           this.SendResponse(data, 401);
         };
 
-        res.__proto__.Forbidden = function(data) {
+        res.__proto__.Forbidden = function (data) {
           this.SendResponse(data, 403);
         };
 
-        res.__proto__.NotFound = function(data) {
+        res.__proto__.NotFound = function (data) {
           this.SendResponse(data, 404);
         };
 
-        res.__proto__.Error = function(data) {
+        res.__proto__.Error = function (data) {
           this.SendResponse(data, 500);
         };
 
@@ -186,7 +187,7 @@ class RestLite {
         }
 
         // If content type is JSON resolve body and attach to http.ClientRequest
-        if (req.headers["content-type"] === "application/json") {
+        if (req.headers["content-type"].includes("application/json")) {
           req.body = await json(req);
         }
 
@@ -240,7 +241,7 @@ class RestLite {
       let sp = path.toLocaleLowerCase().split("/");
 
       let nPath = "";
-      sp.forEach(p => {
+      sp.forEach((p) => {
         if (p.includes(":")) {
           p = p.substring(1);
           nPath = nPath + "/*";
@@ -265,11 +266,11 @@ class RestLite {
   setWhitelists(list) {
     try {
       let wlist = [];
-      list.forEach(path => {
+      list.forEach((path) => {
         let sp = path.toLocaleLowerCase().split("/");
         sp.shift();
         let nPath = "";
-        sp.forEach(p => {
+        sp.forEach((p) => {
           if (p.includes(":")) {
             p = p.substring(1);
             nPath = nPath + "/*";
@@ -317,7 +318,7 @@ class RestLite {
       let parts = [];
       let wc = false;
       let nPath = "";
-      sp.forEach(p => {
+      sp.forEach((p) => {
         if (p.includes(":")) {
           p = p.substring(1);
           parts.push({ part: "*", id: p });
@@ -369,11 +370,11 @@ const buffer = (req, { limit = "2mb", encoding } = {}) =>
     }
 
     return getRawBody(req, { limit, length, encoding })
-      .then(buf => {
+      .then((buf) => {
         rawBodyMap.set(req, buf);
         return buf;
       })
-      .catch(err => {
+      .catch((err) => {
         if (err.type === "entity.too.large") {
           console.error(413, `Body exceeded ${limit} limit`, err);
         } else {
@@ -389,7 +390,7 @@ const buffer = (req, { limit = "2mb", encoding } = {}) =>
  * @returns {String}
  */
 const text = (req, { limit, encoding } = {}) =>
-  buffer(req, { limit, encoding }).then(body => body.toString(encoding));
+  buffer(req, { limit, encoding }).then((body) => body.toString(encoding));
 
 /**
  * Returns body JSON
@@ -398,7 +399,7 @@ const text = (req, { limit, encoding } = {}) =>
  * @returns {JSON}
  */
 const json = (req, opts) =>
-  text(req, opts).then(body => {
+  text(req, opts).then((body) => {
     try {
       return JSON.parse(body === "" ? "{}" : body);
     } catch (err) {
