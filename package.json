@@ -1,6 +1,6 @@
 {
   "name": "rest-lite",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A light weight NodeJS restful API Server.",
   "main": "index.js",
   "scripts": {
@@ -10,8 +10,8 @@
   "license": "ISC",
   "homepage": "https://github.com/btrumbly/RestLite.git",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/btrumbly/RestLite.git"
+    "type": "git",
+    "url": "https://github.com/btrumbly/RestLite.git"
   },
   "dependencies": {
     "content-type": "1.0.4",
