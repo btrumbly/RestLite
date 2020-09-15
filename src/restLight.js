@@ -187,8 +187,10 @@ class RestLite {
         }
 
         // If content type is JSON resolve body and attach to http.ClientRequest
-        if (req.headers["content-type"].includes("application/json")) {
-          req.body = await json(req);
+        if (req.headers["content-type"]) {
+          if (req.headers["content-type"].includes("application/json")) {
+            req.body = await json(req);
+          }
         }
 
         // Run any Method Guards
