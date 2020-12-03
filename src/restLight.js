@@ -138,17 +138,21 @@ class RestLite {
           for (const key in _this._routes) {
             if (_this._routes[key].wildcards) {
               let parts = _this._routes[key].parts;
-              for (let i = 0; i < parts.length; i++) {
-                if (parts[i].part === sp[i]) {
-                  nPath = nPath + "/" + sp[i];
-                }
-                if (parts[i].part !== sp[i]) {
-                  if (parts[i].part === "*" && parts[i].id) {
-                    req[parts[i].id] = sp[i];
-                    nPath = nPath + "/*";
+              
+              if (parts[0].part === sp[0]) {
+                for (let i = 0; i < parts.length; i++) {
+                  if (parts[i].part === sp[i]) {
+                    nPath = nPath + "/" + sp[i];
+                  }
+                  if (parts[i].part !== sp[i]) {
+                    if (parts[i].part === "*" && parts[i].id) {
+                      req[parts[i].id] = sp[i];
+                      nPath = nPath + "/*";
+                    }
                   }
                 }
               }
+
             }
           }
 
