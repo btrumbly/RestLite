@@ -138,8 +138,8 @@ class RestLite {
           for (const key in _this._routes) {
             if (_this._routes[key].wildcards) {
               let parts = _this._routes[key].parts;
-              
-              if (parts[0].part === sp[0]) {
+
+              if (parts[0].part === sp[0] && parts.length === sp.length) {
                 for (let i = 0; i < parts.length; i++) {
                   if (parts[i].part === sp[i]) {
                     nPath = nPath + "/" + sp[i];
