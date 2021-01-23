@@ -9,6 +9,7 @@ const url = require("url");
 const contentType = require("content-type");
 const rawBodyMap = new WeakMap();
 const getRawBody = require("raw-body");
+const { createDocs } = require("rest-lite/src/docs/createDocs");
 
 class RestLite {
   constructor() {
@@ -40,7 +41,7 @@ class RestLite {
       .createServer()
       .listen(this._config.port || 3000, this._config.host);
 
-    console.log(
+    console.info(
       `${this._config.serviceName || "RestLight Server"} running \n Host: ${
         this._config.host || "localhost"
       } \n Port: ${this._config.port || 3000}`
@@ -357,6 +358,20 @@ class RestLite {
 
       this._routes[nPath] = controller;
       return this._routes[nPath];
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  /**
+   * Documents API to a markdown file
+   * @param {output: string} settings 
+   */
+  writeDocs(settings) {
+    try {
+      if (settings && settings.output) {
+        createDocs(settings.output);
+      }
     } catch (error) {
       console.error(error);
     }
