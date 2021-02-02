@@ -175,7 +175,6 @@ server
   .post(attemptLogin)
 
 ```
-
 ## Responses
 
 | Status Code | Method         |
@@ -189,9 +188,23 @@ server
 | 400         | Bad()          |
 | 401         | Unauthorized() |
 | 404         | Forbidden()    |
+| 429         | MaxLimit()     |
 | 500         | Error()        |
+| *           | SendResponse(data, statusCode) |
 
 ---
+## Gateway 
+RestLite also functions as a gateway. Forwarding request onto another host or service. Gateway routes take priority of API controller routes. 
+Auth guards work just like with API routes.
+```
+// Set route guards
+server.setGuard(authorized);
+
+// Gateway routes
+server.forward("api/v1/form/*").to("http://localhost:7211");
+server.forward("api/v2/form/*").to("http://localhost:7204");
+```
+
 ## API Documentation
 Documentation will generate a ```.md``` (Markdown File) of all your routes and the corresponding methods. In order for a method to be seen by the generator, the method must be noted like example below. Documentation works with [dotenv](https://www.npmjs.com/package/dotenv). You can also provide a array of folder/files to not look at. Do this by adding the an array of strings to the ignore property as seen below. By default ```.git, .vscode, .gitignore, node_modules``` are ignored.
 ```

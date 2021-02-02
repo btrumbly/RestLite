@@ -9,7 +9,6 @@ const putRegex = /.put\((.*?)\).?/;
 const deleteRegex = /.delete\((.*?)\).?/;
 const methodRegex = /\/\*\*([\s\S]*?)\*\//g;
 
-let docs = "";
 let api = {
   about: {},
   routes: [],

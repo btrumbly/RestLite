@@ -1,6 +1,6 @@
 /**
  * Title: RestLite
- * About: A light weight http Restful API Server.
+ * About: A light weight http Restful API Server / Gateway.
  * Author: Brian Trumbly
  */
 
@@ -9,12 +9,14 @@ const url = require("url");
 const contentType = require("content-type");
 const rawBodyMap = new WeakMap();
 const getRawBody = require("raw-body");
+const fetch = require("node-fetch");
 const { createDocs } = require("rest-lite/src/docs/createDocs");
 
 class RestLite {
   constructor() {
     this._server = null;
     this._routes = {};
+    this._forwardRoutes = {},
     this._guards = [];
     this._methodGuard = [];
     this._whiteList = [];
@@ -74,6 +76,7 @@ class RestLite {
           }
 
           if (_this._config.responseType.toLocaleLowerCase() === "json") {
+            this.statusCode = code;
             this.end(JSON.stringify(data));
           } else {
             this.statusCode = code;
@@ -122,60 +125,84 @@ class RestLite {
           this.SendResponse(data, 404);
         };
 
+        res.__proto__.MaxLimit = function (data) {
+          this.SendResponse(data, 429);
+        };
+
         res.__proto__.Error = function (data) {
           this.SendResponse(data, 500);
         };
 
-        // Check if Path and Method exists.
-        if (
-          !_this._routes[path] ||
-          !_this._routes[path][`_${req.method.toLowerCase()}`]
-        ) {
-          let sp = path.toLocaleLowerCase().split("/");
-          sp.shift();
-          let nPath = "";
+        res.__proto__.Send = function (data) {
+          _this.send(this, data);
+        }
 
-          // Check for wildcard values
-          for (const key in _this._routes) {
-            if (_this._routes[key].wildcards) {
-              let parts = _this._routes[key].parts;
+        let fwd;
 
-              if (parts.length === sp.length) {
-                for (let i = 0; i < parts.length; i++) {
-                  if (parts[i].part === sp[i]) {
-                    nPath += "/" + sp[i];
-                  } else {
-                    if (parts[i].part === "*" && parts[i].id) {
-                      nPath += "/*"
-                    }
-                  }
-                }
-                if (_this._routes[nPath]) {
-                  if (nPath.includes("*")) {
-                    for (let j = 0; j < parts.length; j++) {
-                      if (parts[j].part === "*" && parts[j].id) {
-                        req[parts[j].id] = sp[j];
+        // Check for gateway routes first. These take priority of API Routes.
+        if (Object.keys(_this._forwardRoutes).length) {  
+          for (const key in _this._forwardRoutes) {         
+            if (path.toLowerCase().includes(key.replace('*', '').toLowerCase())) {
+              path = key
+              fwd = true;
+              break;
+            }
+          }
+        }
+
+        if (!fwd) {
+          // Check if Path and Method exists.
+          if (
+            !_this._routes[path] ||
+            !_this._routes[path][`_${req.method.toLowerCase()}`]
+          ) {
+            let sp = path.toLocaleLowerCase().split("/");
+            sp.shift();
+            let nPath = "";
+  
+            // Check for wildcard values
+            for (const key in _this._routes) {
+              if (_this._routes[key].wildcards) {
+                let parts = _this._routes[key].parts;
+  
+                if (parts.length === sp.length) {
+                  for (let i = 0; i < parts.length; i++) {
+                    if (parts[i].part === sp[i]) {
+                      nPath += "/" + sp[i];
+                    } else {
+                      if (parts[i].part === "*" && parts[i].id) {
+                        nPath += "/*"
                       }
                     }
-                  }            
-                  break
-                } else {
-                  nPath = "";
+                  }
+                  if (_this._routes[nPath]) {
+                    if (nPath.includes("*")) {
+                      for (let j = 0; j < parts.length; j++) {
+                        if (parts[j].part === "*" && parts[j].id) {
+                          req[parts[j].id] = sp[j];
+                        }
+                      }
+                    }            
+                    break
+                  } else {
+                    nPath = "";
+                  }
                 }
               }
             }
-          }
 
-          if (
-            !_this._routes[nPath] ||
-            !_this._routes[nPath][`_${req.method.toLowerCase()}`]
-          ) {
-            res.NotFound({ error: 404, message: "Path not found." });
-            return;
-          } else {
-            path = nPath;
+            if (
+              !_this._routes[nPath] ||
+              !_this._routes[nPath][`_${req.method.toLowerCase()}`]
+              ) {
+              res.NotFound({ error: 404, message: "Path not found." });
+              return;
+            } else {
+              path = nPath;
+            }
           }
         }
+
 
         // Check for whitelist URL
         for (let i = 0; i < _this._whiteList.length; i++) {
@@ -188,7 +215,17 @@ class RestLite {
         if (!whiteListed) {
           if (_this._guards.length) {
             for (let i = 0; i < _this._guards.length; i++) {
-              let pass = await _this._guards[i](req);
+              let pass;
+              if (_this._guards[i].path) {
+                if (path.includes(_this._guards[i].path)) {
+                  pass = await _this._guards[i].fn(req);
+                } else {
+                  pass = true;
+                }
+              } else {
+                pass = await _this._guards[i].fn(req);
+              }
+              
               if (!pass) {
                 res.statusCode = 401;
                 res.end(
@@ -208,7 +245,7 @@ class RestLite {
         }
 
         // Run any Method Guards
-        if (_this._routes[path][`_${req.method.toLowerCase()}`].prm) {
+        if (!fwd && _this._routes[path][`_${req.method.toLowerCase()}`].prm) {
           if (_this._methodGuard.length) {
             for (let i = 0; i < _this._methodGuard.length; i++) {
               let pass = await _this._methodGuard[i](req);
@@ -221,6 +258,14 @@ class RestLite {
               }
             }
           }
+        }
+
+        // Execute gateway logic first
+        if (Object.keys(_this._forwardRoutes).length) {
+          if (_this._forwardRoutes[path]) {
+            _this.forwardRequest(req, _this._forwardRoutes[path]._to.h, res);
+            return
+          }  
         }
 
         // Pass ClientRequest to corresponding controller
@@ -314,10 +359,13 @@ class RestLite {
 
   /**
    * Adds a API Guard that every request must pass. Unless it is whitelisted.
+   * Optionally pass a 'path' to only aply auth guard to request that include that path.
    * @param {Function} fn
+   * @param {String} path
+   * @returns {Boolean}
    */
-  setGuard(fn) {
-    this._guards.push(fn);
+  setGuard(fn, path) {
+    this._guards.push({fn:fn,path:path});
   }
 
   setMethodGuard(fn) {
@@ -362,6 +410,61 @@ class RestLite {
       console.error(error);
     }
   }
+  
+  /**
+   * Sets a new Gateway route.
+   * @param {String} path 
+   */
+  forward(path) {
+    try {
+      let gwr = new GatewayPath(path);
+
+      if (this._forwardRoutes[path]) {
+        throw Error(`Gateway Path ${path}, already in use.`);
+      }
+
+      this._forwardRoutes[path] = gwr;
+      return this._forwardRoutes[path];
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  /**
+   * Forward request via http to another host.
+   * @param {HTTP Request} request 
+   * @param {String} to "Host ex. http://localhost:2000" 
+   * @param {HTTP Response} res 
+   */
+  async forwardRequest(request, to, res) {
+    try {
+      let props = { method: request.method, headers: request.headers };
+      if (request.headers["content-type"] && request.method !== 'GET') {
+        if (request.headers["content-type"].includes("application/json") && request.body) {
+          props.body = JSON.stringify(request.body);
+        }
+      }
+      
+      const response = await fetch(`${to}${request.url}`, props);
+      let ct = response.headers.get("content-type");
+      if (ct) {
+        if (ct.includes("application/json")) {
+          const data = await response.json();
+          res.SendResponse(data, response.status);
+          return
+        } 
+      } 
+ 
+      const buffer = await response.buffer();
+      res.writeHeader(response.status, { "Content-Type": ct });
+      res.write(buffer);
+      res.end();
+      return;
+    
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   /**
    * Documents API to a markdown file
@@ -377,6 +480,8 @@ class RestLite {
     }
   }
 }
+
+
 
 /**
  * Returns a body buffer
@@ -436,6 +541,18 @@ const json = (req, opts) =>
       console.error(400, "Invalid JSON", err);
     }
   });
+
+
+class GatewayPath {
+  constructor(path) {
+    this._path = path;
+    this._to = null
+  }
+  to(host) {
+    this._to = { h: host };
+    return this;
+  }
+}
 
 class APIController {
   constructor(path) {

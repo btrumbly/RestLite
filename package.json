@@ -1,7 +1,7 @@
 {
   "name": "rest-lite",
-  "version": "1.0.7",
-  "description": "A light weight NodeJS restful API Server.",
+  "version": "1.0.8",
+  "description": "A light weight NodeJS restful API Server / Gateway.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "content-type": "1.0.4",
+    "node-fetch": "^2.6.1",
     "raw-body": "2.3.2"
   }
 }
