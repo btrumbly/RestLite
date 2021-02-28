@@ -14,7 +14,6 @@ const { createDocs } = require("rest-lite/src/docs/createDocs");
 const Formidable = require("formidable");
 var FormData = require("form-data");
 var fs = require("fs");
-const fsAsync = require("fs").promises;
 
 class RestLite {
   constructor() {
