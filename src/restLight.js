@@ -455,6 +455,9 @@ class RestLite {
    * @param {HTTP Response} res
    */
   async forwardRequest(request, to, res) {
+    if (this._config.logging) {
+      console.info(`PROXY From: ${request.headers.host}${request.url} to: ${to}${request.url}`)
+    }
     try {
       let props = { method: request.method, headers: request.headers };
       if (request.headers["content-type"] && request.method !== "GET") {
@@ -503,6 +506,9 @@ class RestLite {
                   });
                   res.write(buffer);
                   res.end();
+                  if (this._config.logging) {
+                    console.info(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.url}`)
+                  }
                 });
 
                 return;
@@ -530,6 +536,9 @@ class RestLite {
         res.writeHeader(response.status, headers);
         res.write(buffer);
         res.end();
+        if (this._config.logging) {
+          console.info(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.url}`)
+        }
         return;
       }
     } catch (error) {
