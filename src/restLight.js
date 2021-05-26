@@ -173,10 +173,10 @@ class RestLite {
                   for (let i = 0; i < parts.length; i++) {
                     if (parts[i].part === sp[i]) {
                       nPath += "/" + sp[i];
+                    } else if (parts[i].part === "*" && parts[i].id) {
+                      nPath += "/*";
                     } else {
-                      if (parts[i].part === "*" && parts[i].id) {
-                        nPath += "/*";
-                      }
+                      break
                     }
                   }
                   if (_this._routes[nPath]) {
