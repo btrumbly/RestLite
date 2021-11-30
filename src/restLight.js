@@ -219,7 +219,7 @@
            if (_this._guards.length) {
              for (let i = 0; i < _this._guards.length; i++) {
                let pass;
-               if (_this._guards[i].path) {
+               if (_this._guards[i].path && _this._guards[i].path !== '*') {
                  if (path.includes(_this._guards[i].path.toLowerCase())) {
                    pass = await _this._guards[i].fn(req);
                  } else {
@@ -230,12 +230,41 @@
                }
  
                if (!pass) {
+                 // check if there settings for the guard.
+                 if (_this._guards[i].settings) {
+                  // check for redirect
+                  if (_this._guards[i].settings.redirect) {
+                    res.writeHead(302, {
+                      location: _this._guards[i].settings.redirect,
+                    });
+                    res.end();
+                    return
+                  }
+                  // check for alt content return
+                  if (_this._guards[i].settings.html) {
+                    let found = await fs.existsSync(_this._guards[i].settings.html)
+                    if (await fs.existsSync(_this._guards[i].settings.html)) {
+                      let page = await fs.readFileSync(_this._guards[i].settings.html);
+                      res.writeHead(401, { "Content-Type": "text/html" });
+                      res.write(page.toString());
+                      res.end();
+                      return
+                    }
+                  }
+                  // else just return 401
+                  res.statusCode = 401;
+                  res.end(
+                    JSON.stringify({ error: 401, message: "Not Authenticated" })
+                  );
+                  return;
+                 } 
+
                  res.statusCode = 401;
-                 res.end(
-                   JSON.stringify({ error: 401, message: "Not Authenticated" })
-                 );
-                 return;
-               }
+                  res.end(
+                    JSON.stringify({ error: 401, message: "Not Authenticated" })
+                  );
+                  return;
+               } 
              }
            }
          }
@@ -377,13 +406,15 @@
  
    /**
     * Adds a API Guard that every request must pass. Unless it is whitelisted.
-    * Optionally pass a 'path' to only aply auth guard to request that include that path.
+    * Optionally pass a 'path' to only apply auth guard to request that include that path.
+    * Optionally pass 'settings' have the request redirected or deliver alternative content.
     * @param {Function} fn
     * @param {String} path
+    * @param {Object} ex. {redirect: String, html: String}
     * @returns {Boolean}
     */
-   setGuard(fn, path) {
-     this._guards.push({ fn: fn, path: path });
+   setGuard(fn, path, settings) {
+     this._guards.push({ fn, path, settings });
    }
  
    setMethodGuard(fn) {

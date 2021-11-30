@@ -86,6 +86,28 @@ const authenticated = (req) => {
 server.setGuard(authenticated);
 // server.setGuard(guardNumber2)
 ```
+
+### Route Guard Path & Settings
+Settings Object:
+```
+{
+  redirect: String
+  html: String
+}
+```
+Passing Path and Settings:
+- Below is an example of if a request fails a guard it will then be redirected, using 302, to google.com.
+```
+server.setGuard(authenticated, '*', {redirect: 'https://google.com'});
+```
+- Below is an example of if a request fails a guard it will then be served alternative content based on directory path.
+```
+server.setGuard(authenticated, '*', {html: './expired.html'});
+```
+- You can pass `*` to apply a guard to all paths.
+- Note: You can only use redirect or html in the settings. Redirect hold presidents over serving alternative html content.
+
+
 ## Method Guards
 Method guards run before sending a request to a method. Great for permission checks or user roles.
 ```
@@ -199,6 +221,7 @@ Auth guards work just like with API routes.
 ```
 // Set route guards
 server.setGuard(authorized);
+server.setGuard(checkProductLicense, '*', {html: './html/expired.html'});
 
 // Gateway routes
 server.forward("api/v1/form/*").to("http://localhost:7211");
