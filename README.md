@@ -227,6 +227,11 @@ server.setGuard(checkProductLicense, '*', {html: './html/expired.html'});
 server.forward("api/v1/form/*").to("http://localhost:7211");
 server.forward("api/v2/form/*").to("http://localhost:7204");
 ```
+### Gateway Path Swapping
+With ``.swap`` you can replcae the path with an alternative path. For the example below, the path would change from ``api/v2/form/`` to ``api/v1/legacyform/`` once it is passed on.
+```
+server.forward("api/v2/form/*").to("http://localhost:7204").swap("api/v1/legacyform/");
+```
 
 ## API Documentation
 Documentation will generate a ```.md``` (Markdown File) of all your routes and the corresponding methods. In order for a method to be seen by the generator, the method must be noted like example below. Documentation works with [dotenv](https://www.npmjs.com/package/dotenv). You can also provide a array of folder/files to not look at. Do this by adding the an array of strings to the ignore property as seen below. By default ```.git, .vscode, .gitignore, node_modules``` are ignored.
@@ -270,7 +275,7 @@ const getAnalytics = async (req, res, params) => {
    // method logic here
 };
 ```
-### Documentation Example:
+## Documentation Example:
 # Analytics-Service-API
 **Version:** 1.0.0
 

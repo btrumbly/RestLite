@@ -310,6 +310,12 @@
          // Execute gateway logic first
          if (Object.keys(_this._forwardRoutes).length) {
            if (_this._forwardRoutes[path]) {
+              // If forward has swap, replace with swap path.
+              if (_this._forwardRoutes[path]._swap) {
+                let tempPath = path.includes('*') ? path.replace('*', '') : path;
+                req.url = req.url.replace(tempPath, _this._forwardRoutes[path]._swap)
+              }
+              // forward request on.
              _this.forwardRequest(req, _this._forwardRoutes[path]._to.h, res);
              return;
            }
@@ -662,12 +668,18 @@
  class GatewayPath {
    constructor(path) {
      this._path = path;
+     this._swap = null;
      this._to = null;
+   }
+   swap(swap) {
+    this._swap = swap
+    return this;
    }
    to(host) {
      this._to = { h: host };
      return this;
    }
+   
  }
  
  class APIController {
