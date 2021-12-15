@@ -270,11 +270,11 @@
          }
  
          // If content type is JSON resolve body and attach to http.ClientRequest
-         if (req.headers["content-type"]) {
-           if (req.headers["content-type"].includes("application/json")) {
-             req.body = await json(req);
-           }
-         }
+         if (req.headers["content-type"] && req.method.toLowerCase() !== 'get') {
+          if (req.headers["content-type"].includes("application/json")) {
+            req.body = await json(req);
+          }
+        }
  
          // Run any Method Guards
          if (!fwd && _this._routes[path][`_${req.method.toLowerCase()}`].prm) {
@@ -313,7 +313,8 @@
               // If forward has swap, replace with swap path.
               if (_this._forwardRoutes[path]._swap) {
                 let tempPath = path.includes('*') ? path.replace('*', '') : path;
-                req.url = req.url.replace(tempPath, _this._forwardRoutes[path]._swap)
+                req.originalURL = req.url;
+                req.url = req.url.toLocaleLowerCase().replace(tempPath.toLocaleLowerCase(), _this._forwardRoutes[path]._swap.toLocaleLowerCase());
               }
               // forward request on.
              _this.forwardRequest(req, _this._forwardRoutes[path]._to.h, res);
@@ -493,7 +494,7 @@
     */
    async forwardRequest(request, to, res) {
      if (this._config.logging) {
-       console.info(`PROXY From: ${request.headers.host}${request.url} to: ${to}${request.url}`)
+       console.info(`PROXY From: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} to: ${to}${request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`)
      }
      try {
        let props = { method: request.method, headers: request.headers };
@@ -535,7 +536,7 @@
                    res.writeHeader(500);
                    res.end();
                    if (this._config.logging) {
-                    console.info(`ERROR: PROXY from: ${to}${request.url} to: ${request.headers.host}${request.url}, ${err}`)
+                    console.info(`ERROR: PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}, ${err}`)
                   }
                    return
                  }
@@ -552,7 +553,7 @@
                    res.write(buffer);
                    res.end();
                    if (this._config.logging) {
-                     console.info(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.url}`)
+                     console.info(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`)
                    }
                  });
  
@@ -582,7 +583,7 @@
          res.write(buffer);
          res.end();
          if (this._config.logging) {
-           console.info(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.url}`)
+           console.info(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`)
          }
          return;
        }
@@ -667,16 +668,16 @@
  
  class GatewayPath {
    constructor(path) {
-     this._path = path;
+     this._path = path.toLowerCase();
      this._swap = null;
      this._to = null;
    }
    swap(swap) {
-    this._swap = swap
+    this._swap = swap.toLowerCase()
     return this;
    }
    to(host) {
-     this._to = { h: host };
+     this._to = { h: host.toLowerCase() };
      return this;
    }
    
@@ -684,7 +685,7 @@
  
  class APIController {
    constructor(path) {
-     this._path = path;
+     this._path = path.toLowerCase();
      this._get = null;
      this._post = null;
      this._patch = null;

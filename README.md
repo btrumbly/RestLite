@@ -1,6 +1,6 @@
 # RestLite
 
-A light weight NodeJS restful API module.
+A light weight, powerful NodeJS restful API module.
 ### Install
 
 ```
