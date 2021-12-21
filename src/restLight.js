@@ -519,7 +519,7 @@
            let key = Object.keys(files);
            if (key.length) {
              let form = new FormData();
-             form.append(key[0], fs.createReadStream(files[key[0]].path));
+             form.append(key[0], fs.createReadStream(files[key[0]].filepath));
              delete request.headers["content-type"];
              delete request.headers["content-length"];
              let host = to.split(":");
@@ -540,7 +540,7 @@
                   }
                    return
                  }
-                 fs.unlinkSync(files[key[0]].path);
+                 fs.unlinkSync(files[key[0]].filepath);
  
                  let buffer = "";
                  resp.on("data", (chunk) => {

@@ -1,6 +1,6 @@
 # RestLite
 
-A light weight, powerful NodeJS restful API module.
+A light weight, powerful NodeJS restful API and Gateway module.
 ### Install
 
 ```
@@ -52,7 +52,7 @@ const fn2 = function(req, res, query) {
 };
 
 const fn3 = function(req, res, query) {
-  console.log(req.accountID);
+  console.log(req.accountid);
   res.OK();
 };
 
@@ -68,7 +68,14 @@ server
   .get(fn3)
 
 ```
-
+## Server Config
+| Option      | Value         | Example | |
+| ----------- |:--------------:|:----:|---|
+| responseType | String |"json"  |``Format of requests and responses``|
+| host         | String |"localhost", "127.0.0.1"  |``Address the server should bind to``|
+| port         | Number |3000 |``Port the server should listen on``    |
+| serviceName  | String |"RestLight Server" |``The name of the API or service``  |
+| logging      | Boolean/String |true, "debug" |``"debug" - Outputs all request, true - Outputs proxy request``
 ## Route Guards
 Guards are functions used to safeguard call and controllers. A guard is a function that takes in a http request and returns a boolean. If ``true`` the guard allows the request to go through. Guards should be async functions. you can have multiple guards. 
 ```
@@ -137,7 +144,24 @@ server.setWhitelists([
 ]);
 
 ```
+## Responses
 
+| Status Code | Method         |
+| ----------- | -------------- |
+| 100         | Continue()     |
+| 200         | OK()           |
+| 201         | Created()      |
+| 204         | NoContent()    |
+| 301         | Moved()        |
+| 302         | Found()        |
+| 400         | Bad()          |
+| 401         | Unauthorized() |
+| 404         | Forbidden()    |
+| 429         | MaxLimit()     |
+| 500         | Error()        |
+| *           | SendResponse(data, statusCode) |
+
+---
 ## Separate Router File
 ### index.js
 ```
@@ -197,24 +221,7 @@ server
   .post(attemptLogin)
 
 ```
-## Responses
 
-| Status Code | Method         |
-| ----------- | -------------- |
-| 100         | Continue()     |
-| 200         | OK()           |
-| 201         | Created()      |
-| 204         | NoContent()    |
-| 301         | Moved()        |
-| 302         | Found()        |
-| 400         | Bad()          |
-| 401         | Unauthorized() |
-| 404         | Forbidden()    |
-| 429         | MaxLimit()     |
-| 500         | Error()        |
-| *           | SendResponse(data, statusCode) |
-
----
 ## Gateway 
 RestLite also functions as a gateway. Forwarding request onto another host or service. Gateway routes take priority of API controller routes. 
 Auth guards work just like with API routes.
