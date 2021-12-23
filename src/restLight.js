@@ -153,7 +153,7 @@
                 return;
               }
               
-              let file = await fsAsync.readFile(path)
+              let file = await await fs.readFileSync(path)
               this.writeHead(this.statusCode, { "Content-Type": "text/html" });
               this.write(file);
               this.end();  
