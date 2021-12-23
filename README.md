@@ -147,7 +147,7 @@ server.setWhitelists([
 ## Responses
 
 | Status Code | Method         |
-| ----------- | -------------- |
+|:-----------:| -------------- |
 | 100         | Continue()     |
 | 200         | OK()           |
 | 201         | Created()      |
@@ -160,7 +160,8 @@ server.setWhitelists([
 | 429         | MaxLimit()     |
 | 500         | Error()        |
 | *           | SendResponse(data, statusCode) |
-
+| *           | Render(statusCode, Content) |
+| *           | RenderFile(statusCode, FilePath) |
 ---
 ## Separate Router File
 ### index.js

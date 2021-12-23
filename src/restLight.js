@@ -14,6 +14,7 @@
  const Formidable = require("formidable");
  var FormData = require("form-data");
  var fs = require("fs");
+
  
  class RestLite {
    constructor() {
@@ -69,6 +70,8 @@
          let path = u.pathname.toLowerCase();
          let whiteListed = false;
  
+
+
          // Add custom response methods to http.ServerResponse
          res.__proto__.SendResponse = function (data, code) {
            if (!data) {
@@ -85,7 +88,7 @@
              this.end(data);
            }
          };
- 
+
          res.__proto__.Continue = function (data) {
            this.statusCode = 100;
            this.SendResponse(data, 100);
@@ -135,9 +138,30 @@
            this.SendResponse(data, 500);
          };
  
-         res.__proto__.Send = function (data) {
-           _this.send(this, data);
+         res.__proto__.Render = function (code, content) {
+           this.statusCode = code;
+           this.writeHead(this.statusCode, { "Content-Type": "text/html" });
+           this.write(content);
+           this.end();
          };
+
+         res.__proto__.RenderFile = async function (code, path) {
+          this.statusCode = code;
+           try {
+              if (!path) {
+                this.end();
+                return;
+              }
+              
+              let file = await fsAsync.readFile(path)
+              this.writeHead(this.statusCode, { "Content-Type": "text/html" });
+              this.write(file);
+              this.end();  
+           } catch (error) {
+             console.error(error);
+             this.end(); 
+           }
+        };
  
          let fwd;
  
@@ -275,7 +299,10 @@
             req.body = await json(req);
           }
         }
- 
+
+        // Set URL Query
+         req.query = query
+
          // Run any Method Guards
          if (!fwd && _this._routes[path][`_${req.method.toLowerCase()}`].prm) {
            if (_this._methodGuard.length) {
@@ -682,8 +709,8 @@
    }
    
  }
- 
- class APIController {
+
+class APIController {
    constructor(path) {
      this._path = path.toLowerCase();
      this._get = null;
