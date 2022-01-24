@@ -14,7 +14,6 @@
  const Formidable = require("formidable");
  var FormData = require("form-data");
  var fs = require("fs");
-
  
  class RestLite {
    constructor() {
@@ -30,9 +29,9 @@
        port: 3000,
        serviceName: "RestLight Server",
        keepWildcardCase: false,
-       logging: false
+       logging: false,
      };
-     this._loggingOutput = null
+     this._loggingOutput = null;
    }
  
    /**
@@ -48,11 +47,14 @@
      let server = http
        .createServer()
        .listen(this._config.port || 3000, this._config.host);
-
-       this._log(`${this._config.serviceName || "RestLight Server"} running \n Host: ${
-        this._config.host || "localhost"
-      } \n Port: ${this._config.port || 3000} \n Logging: ${this._config.logging || "Off"}`)
-
+ 
+     this._log(
+       `${this._config.serviceName || "RestLight Server"} running \n Host: ${
+         this._config.host || "localhost"
+       } \n Port: ${this._config.port || 3000} \n Logging: ${
+         this._config.logging || "Off"
+       }`, this
+     );
  
      server.on("request", async (req, res) => {
        try {
@@ -72,13 +74,16 @@
          let path = u.pathname.toLowerCase();
          let whiteListed = false;
  
-
-
          // Add custom response methods to http.ServerResponse
          res.__proto__.SendResponse = function (data, code) {
            if (!data) {
              this.statusCode = code;
              this.end();
+             this._log(
+               `RESPONSE: ${code} ${req.method}:${req.url} IP: ${
+                 req.headers["x-forwarded-for"] || req.connection.remoteAddress
+               }`
+             );
              return;
            }
  
@@ -89,9 +94,14 @@
              this.statusCode = code;
              this.end(data);
            }
-           this._log(`RESPONSE: ${code} ${req.method}:${req.url}`)
+           this._log(
+             `RESPONSE: ${code} ${req.method}:${req.url} IP: ${
+               req.headers["x-forwarded-for"] || req.connection.remoteAddress
+             }`,
+             data
+           );
          };
-
+ 
          res.__proto__.Continue = function (data) {
            this.statusCode = 100;
            this.SendResponse(data, 100);
@@ -147,27 +157,27 @@
            this.write(content);
            this.end();
          };
-
+ 
          res.__proto__.RenderFile = async function (code, path) {
-          this.statusCode = code;
+           this.statusCode = code;
            try {
-              if (!path) {
-                this.end();
-                return;
-              }
-              
-              let file = await await fs.readFileSync(path)
-              this.writeHead(this.statusCode, { "Content-Type": "text/html" });
-              this.write(file);
-              this.end();  
+             if (!path) {
+               this.end();
+               return;
+             }
+ 
+             let file = await await fs.readFileSync(path);
+             this.writeHead(this.statusCode, { "Content-Type": "text/html" });
+             this.write(file);
+             this.end();
            } catch (error) {
              console.error(error);
-             this.end(); 
+             this.end();
            }
-        };
-
-        res.__proto__._log = this._log
-        res.__proto__._config = this._config;
+         };
+ 
+         res.__proto__._log = this._log;
+         res.__proto__._config = this._config;
  
          let fwd;
  
@@ -196,48 +206,55 @@
              let nPath = "";
  
              let qualifiedRoutes = [];
-
+ 
              for (const key in _this._routes) {
-                if (_this._routes[key].wildcards && _this._routes[key].parts.length === sp.length) {
-                  qualifiedRoutes.push(key);
-                }
+               if (
+                 _this._routes[key].wildcards &&
+                 _this._routes[key].parts.length === sp.length
+               ) {
+                 qualifiedRoutes.push(key);
+               }
              }
-
+ 
              for (let i = 0; i < qualifiedRoutes.length; i++) {
                const parts = _this._routes[qualifiedRoutes[i]].parts;
-                let partialMatch = true;
-
+               let partialMatch = true;
+ 
                for (let l = 0; l < parts.length; l++) {
-                if (parts[l].part === sp[l]) {
-                  nPath += "/" + sp[l];
-                } else if (parts[l].id) {
-                  nPath += "/*";
-                } else {
-                  partialMatch = false;
-                  continue
-                }
-              }
-              if (partialMatch && _this._routes[nPath]) {
-                if (nPath.includes("*")) {
-                  for (let j = 0; j < parts.length; j++) {
-                    if (parts[j].part === "*" && parts[j].id) {
-                      req[parts[j].id] = sp[j];
-                    }
-                  }
-                }
-                break;
-              } else {
-                nPath = "";
-              }
+                 if (parts[l].part === sp[l]) {
+                   nPath += "/" + sp[l];
+                 } else if (parts[l].id) {
+                   nPath += "/*";
+                 } else {
+                   partialMatch = false;
+                   continue;
+                 }
+               }
+               if (partialMatch && _this._routes[nPath]) {
+                 if (nPath.includes("*")) {
+                   for (let j = 0; j < parts.length; j++) {
+                     if (parts[j].part === "*" && parts[j].id) {
+                       req[parts[j].id] = sp[j];
+                     }
+                   }
+                 }
+                 break;
+               } else {
+                 nPath = "";
+               }
              }
-          
+ 
              if (
                !_this._routes[nPath] ||
                !_this._routes[nPath][`_${req.method.toLowerCase()}`]
              ) {
                res.NotFound({ error: 404, message: "Path not found." });
-               this._log(`REQUEST: 404 ${req.method}:${req.url}`)
-
+               this._log(
+                 `REQUEST: 404 ${req.method}:${req.url} IP: ${
+                   req.headers["x-forwarded-for"] || req.connection.remoteAddress
+                 }`, req
+               );
+ 
                return;
              } else {
                path = nPath;
@@ -257,7 +274,7 @@
            if (_this._guards.length) {
              for (let i = 0; i < _this._guards.length; i++) {
                let pass;
-               if (_this._guards[i].path && _this._guards[i].path !== '*') {
+               if (_this._guards[i].path && _this._guards[i].path !== "*") {
                  if (path.includes(_this._guards[i].path.toLowerCase())) {
                    pass = await _this._guards[i].fn(req);
                  } else {
@@ -270,56 +287,86 @@
                if (!pass) {
                  // check if there settings for the guard.
                  if (_this._guards[i].settings) {
-                  // check for redirect
-                  if (_this._guards[i].settings.redirect) {
-                    res.writeHead(302, {
-                      location: _this._guards[i].settings.redirect,
-                    });
-                    res.end();
-                    this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> 302 ${_this._guards[i].settings.redirect} )`)
-                    return
-                  }
-                  // check for alt content return
-                  if (_this._guards[i].settings.html) {
-                    if (await fs.existsSync(_this._guards[i].settings.html)) {
-                      let page = await fs.readFileSync(_this._guards[i].settings.html);
-                      res.writeHead(401, { "Content-Type": "text/html" });
-                      res.write(page.toString());
-                      res.end();
-                      this._log(`REQUEST: (DENIED) ${req.method}:${req.url} -->  ${_this._guards[i].settings.html})`)
-                      return
-                    }
-                  }
-                  // else just return 401
-                  res.statusCode = 401;
-                  res.end(
-                    JSON.stringify({ error: 401, message: "Not Authenticated" })
-                  );
-                  this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> (Failed API Gaurd)`)
-                  return;
-                 } 
-
+                   // check for redirect
+                   if (_this._guards[i].settings.redirect) {
+                     res.writeHead(302, {
+                       location: _this._guards[i].settings.redirect,
+                     });
+                     res.end();
+                     this._log(
+                       `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${req.url} --> 302 ${
+                         _this._guards[i].settings.redirect
+                       } IP: ${
+                         req.headers["x-forwarded-for"] ||
+                         req.connection.remoteAddress
+                       }`, req
+                     );
+                     return;
+                   }
+                   // check for alt content return
+                   if (_this._guards[i].settings.html) {
+                     if (await fs.existsSync(_this._guards[i].settings.html)) {
+                       let page = await fs.readFileSync(
+                         _this._guards[i].settings.html
+                       );
+                       res.writeHead(401, { "Content-Type": "text/html" });
+                       res.write(page.toString());
+                       res.end();
+                       this._log(
+                         `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${req.url} --> HTML ${
+                           _this._guards[i].settings.html
+                         } IP: ${
+                           req.headers["x-forwarded-for"] ||
+                           req.connection.remoteAddress
+                         }`, req
+                       );
+                       return;
+                     }
+                   }
+                   // else just return 401
+                   res.statusCode = 401;
+                   res.end(
+                     JSON.stringify({ error: 401, message: "Not Authenticated" })
+                   );
+                   this._log(
+                     `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
+                       req.url
+                     } --> (Failed API Guard) IP: ${
+                       req.headers["x-forwarded-for"] ||
+                       req.connection.remoteAddress
+                     }`, req
+                   );
+                   return;
+                 }
+ 
                  res.statusCode = 401;
-                  res.end(
-                    JSON.stringify({ error: 401, message: "Not Authenticated" })
-                  );
-                  this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> (Failed API Gaurd)`)
-                  return;
-               } 
+                 res.end(
+                   JSON.stringify({ error: 401, message: "Not Authenticated" })
+                 );
+                 this._log(
+                   `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
+                     req.url
+                   } IP: ${
+                     req.headers["x-forwarded-for"] ||
+                     req.connection.remoteAddress
+                   }`, req
+                 );
+                 return;
+               }
              }
            }
          }
  
          // If content type is JSON resolve body and attach to http.ClientRequest
-         if (req.headers["content-type"] && req.method.toLowerCase() !== 'get') {
-          if (req.headers["content-type"].includes("application/json")) {
-            req.body = await json(req);
-          }
-        }
-
-        // Set URL Query
-         req.query = query
-
+         if (req.headers["content-type"] && req.method.toLowerCase() !== "get") {
+           if (req.headers["content-type"].includes("application/json")) {
+             req.body = await json(req);
+           }
+         }
+ 
+         // Set URL Query
+         req.query = query;
+ 
          // Run any Method Guards
          if (!fwd && _this._routes[path][`_${req.method.toLowerCase()}`].prm) {
            if (_this._methodGuard.length) {
@@ -330,7 +377,14 @@
                  res.end(
                    JSON.stringify({ error: 401, message: "Permission Denied" })
                  );
-                 this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> (Failed Method Guard)`)
+                 this._log(
+                   `REQUEST: (METHOD GUARD - DENIED) 401 ${req.method}:${
+                     req.url
+                   } --> (Failed Method Guard) IP: ${
+                     req.headers["x-forwarded-for"] ||
+                     req.connection.remoteAddress
+                   }`, req
+                 );
                  return;
                }
              }
@@ -347,7 +401,13 @@
                res.end(
                  JSON.stringify({ error: 401, message: "Permission Denied" })
                );
-               this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> (Failed Method Guard)`)
+               this._log(
+                 `REQUEST: (METHOD GUARD - DENIED) 401 ${req.method}:${
+                   req.url
+                 } --> (Failed Method Guard) IP: ${
+                   req.headers["x-forwarded-for"] || req.connection.remoteAddress
+                 }`, req
+               );
                return;
              }
            }
@@ -356,22 +416,30 @@
          // Execute gateway logic first
          if (Object.keys(_this._forwardRoutes).length) {
            if (_this._forwardRoutes[path]) {
-              // If forward has swap, replace with swap path.
-              if (_this._forwardRoutes[path]._swap) {
-                let tempPath = path.includes('*') ? path.replace('*', '') : path;
-                req.originalURL = req.url;
-                req.url = req.url.toLocaleLowerCase().replace(tempPath.toLocaleLowerCase(), _this._forwardRoutes[path]._swap.toLocaleLowerCase());
-              }
-              // forward request on.
+             // If forward has swap, replace with swap path.
+             if (_this._forwardRoutes[path]._swap) {
+               let tempPath = path.includes("*") ? path.replace("*", "") : path;
+               req.originalURL = req.url;
+               req.url = req.url
+                 .toLocaleLowerCase()
+                 .replace(
+                   tempPath.toLocaleLowerCase(),
+                   _this._forwardRoutes[path]._swap.toLocaleLowerCase()
+                 );
+             }
+             // forward request on.
              _this.forwardRequest(req, _this._forwardRoutes[path]._to.h, res);
              return;
            }
          }
  
-         
          // Pass ClientRequest to corresponding controller
          _this._routes[path][`_${req.method.toLowerCase()}`].fn(req, res, query);
-         this._log(`REQUEST: ${req.method}:${req.url} -->  ${req.method}:${path}:`)
+         this._log(
+           `REQUEST: ${req.method}:${req.url} -->  ${req.method}:${path} IP: ${
+             req.headers["x-forwarded-for"] || req.connection.remoteAddress
+           }`, req
+         );
        } catch (error) {
          console.error(error);
        }
@@ -379,27 +447,28 @@
    }
  
    _log(msg, req, gateway) {
-     
-    if (this._config.logging.toLowerCase() === 'debug' || this._config.logging.toLowerCase() === 'error') {
-      console.info(msg);
-      if (this._loggingOutput) {
-        this._loggingOutput.fn(msg, req)
-      }
-    }
-
-    if (this._config.logging === true && gateway) {
-      console.info(msg);
-      if (this._loggingOutput) {
-        this._loggingOutput.fn(msg, req)
-      }
-    }
-
+     if (
+       this._config.logging.toLowerCase() === "debug" ||
+       this._config.logging.toLowerCase() === "error"
+     ) {
+       console.info(msg);
+       if (this._loggingOutput) {
+         this._loggingOutput(msg, req);
+       }
+     }
+ 
+     if (this._config.logging === true && gateway) {
+       console.info(msg);
+       if (this._loggingOutput) {
+         this._loggingOutput(msg, req);
+       }
+     }
    }
-
+ 
    setLogOutput(fn) {
-    this._loggingOutput = fn
+     this._loggingOutput = fn;
    }
-
+ 
    /**
     * Adds a single response header
     * @param {*} key
@@ -476,7 +545,7 @@
      } catch (error) {
        console.error(error);
        if (res) {
-         res.Error({status: 500, message: "Error processing request."});
+         res.Error({ status: 500, message: "Error processing request." });
        }
      }
    }
@@ -504,8 +573,9 @@
     */
    at(path) {
      try {
-
-       let sp = !this._config.keepWildcardCase ? path.toLocaleLowerCase().split("/") : path.split('/');
+       let sp = !this._config.keepWildcardCase
+         ? path.toLocaleLowerCase().split("/")
+         : path.split("/");
        let parts = [];
        let wc = false;
        let nPath = "";
@@ -564,8 +634,16 @@
     * @param {HTTP Response} res
     */
    async forwardRequest(request, to, res) {
-     this._log(`PROXY From: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} to: ${to}${request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`, request, true)
-
+     this._log(
+       `PROXY From: ${request.headers.host}${
+         request.originalURL ? request.originalURL : request.url
+       } to: ${to}${request.url} - IP: ${
+         request.headers["x-forwarded-for"] || request.connection.remoteAddress
+       }`,
+       request,
+       true
+     );
+ 
      try {
        let props = { method: request.method, headers: request.headers };
        if (request.headers["content-type"] && request.method !== "GET") {
@@ -605,9 +683,20 @@
                  if (err) {
                    res.writeHeader(500);
                    res.end();
-                   this._log(`ERROR: PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}, ${err}`, request, true)
-
-                   return
+                   this._log(
+                     `ERROR: PROXY from: ${to}${request.url} to: ${
+                       request.headers.host
+                     }${
+                       request.originalURL ? request.originalURL : request.url
+                     } - IP: ${
+                       request.headers["x-forwarded-for"] ||
+                       request.connection.remoteAddress
+                     }, ${err}`,
+                     request,
+                     true
+                   );
+ 
+                   return;
                  }
                  fs.unlinkSync(files[key[0]].filepath);
  
@@ -621,8 +710,18 @@
                    });
                    res.write(buffer);
                    res.end();
-                   this._log(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`, request, true)
-
+                   this._log(
+                     `PROXY from: ${to}${request.url} to: ${
+                       request.headers.host
+                     }${
+                       request.originalURL ? request.originalURL : request.url
+                     } - IP: ${
+                       request.headers["x-forwarded-for"] ||
+                       request.connection.remoteAddress
+                     }`,
+                     request,
+                     true
+                   );
                  });
  
                  return;
@@ -650,8 +749,17 @@
          res.writeHeader(response.status, headers);
          res.write(buffer);
          res.end();
-         this._log(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`, request, true)
-
+         this._log(
+           `PROXY from: ${to}${request.url} to: ${request.headers.host}${
+             request.originalURL ? request.originalURL : request.url
+           } - IP: ${
+             request.headers["x-forwarded-for"] ||
+             request.connection.remoteAddress
+           }`,
+           request,
+           true
+         );
+ 
          return;
        }
      } catch (error) {
@@ -740,17 +848,16 @@
      this._to = null;
    }
    swap(swap) {
-    this._swap = swap.toLowerCase()
-    return this;
+     this._swap = swap.toLowerCase();
+     return this;
    }
    to(host) {
      this._to = { h: host.toLowerCase() };
      return this;
    }
-   
  }
-
-class APIController {
+ 
+ class APIController {
    constructor(path) {
      this._path = path.toLowerCase();
      this._get = null;
