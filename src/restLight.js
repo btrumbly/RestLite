@@ -448,7 +448,9 @@
  
    _log(msg, req, gateway) {
      if (
+       this._config.logging &&
        this._config.logging.toLowerCase() === "debug" ||
+       this._config.logging &&
        this._config.logging.toLowerCase() === "error"
      ) {
        console.info(msg);
