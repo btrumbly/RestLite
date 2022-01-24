@@ -75,7 +75,18 @@ server
 | host         | String |"localhost", "127.0.0.1"  |``Address the server should bind to``|
 | port         | Number |3000 |``Port the server should listen on``    |
 | serviceName  | String |"RestLight Server" |``The name of the API or service``  |
-| logging      | Boolean/String |true, "debug" |``"debug" - Outputs all request, true - Outputs proxy request``
+| logging      | Boolean/String |true, "debug" |``"debug" - Outputs all request, "error" - Outputs only errors, true - Outputs proxy request only``
+| keepWildcardCase | Boolean | | ``true, Keeps the wildcard case as it was typed. false (Default), lowercase the wildcard``
+
+## Logging
+To output the logs of Rest-Lite to a function, use `setLogOutput()`. Your logging method should take in `(message: STRING, Request: HTTPRequestObject)`. This should be used in conjunction with the logging setting in your config. See above for more information.
+```
+const logToDB = async (message, request) => {
+  await database('INSERT INTO ProductLogs (Message, Request) VALUES (?,?), [message, request])
+}
+
+server.setLogOutput(logToDB);
+```
 ## Route Guards
 Guards are functions used to safeguard call and controllers. A guard is a function that takes in a http request and returns a boolean. If ``true`` the guard allows the request to go through. Guards should be async functions. you can have multiple guards. 
 ```

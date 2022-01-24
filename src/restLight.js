@@ -29,7 +29,10 @@
        host: null,
        port: 3000,
        serviceName: "RestLight Server",
+       keepWildcardCase: false,
+       logging: false
      };
+     this._loggingOutput = null
    }
  
    /**
@@ -45,12 +48,11 @@
      let server = http
        .createServer()
        .listen(this._config.port || 3000, this._config.host);
- 
-     console.info(
-       `${this._config.serviceName || "RestLight Server"} running \n Host: ${
-         this._config.host || "localhost"
-       } \n Port: ${this._config.port || 3000}`
-     );
+
+       this._log(`${this._config.serviceName || "RestLight Server"} running \n Host: ${
+        this._config.host || "localhost"
+      } \n Port: ${this._config.port || 3000} \n Logging: ${this._config.logging || "Off"}`)
+
  
      server.on("request", async (req, res) => {
        try {
@@ -87,6 +89,7 @@
              this.statusCode = code;
              this.end(data);
            }
+           this._log(`RESPONSE: ${code} ${req.method}:${req.url}`)
          };
 
          res.__proto__.Continue = function (data) {
@@ -162,6 +165,9 @@
              this.end(); 
            }
         };
+
+        res.__proto__._log = this._log
+        res.__proto__._config = this._config;
  
          let fwd;
  
@@ -184,46 +190,54 @@
              !_this._routes[path] ||
              !_this._routes[path][`_${req.method.toLowerCase()}`]
            ) {
-             let sp = path.toLocaleLowerCase().split("/");
+             // If not, Check for wildcard values
+             let sp = path.toLocaleLowerCase().split(/\//g);
              sp.shift();
              let nPath = "";
  
-             // Check for wildcard values
+             let qualifiedRoutes = [];
+
              for (const key in _this._routes) {
-               if (_this._routes[key].wildcards) {
-                 let parts = _this._routes[key].parts;
- 
-                 if (parts.length === sp.length) {
-                   for (let i = 0; i < parts.length; i++) {
-                     if (parts[i].part === sp[i]) {
-                       nPath += "/" + sp[i];
-                     } else if (parts[i].part === "*" && parts[i].id) {
-                       nPath += "/*";
-                     } else {
-                       break
-                     }
-                   }
-                   if (_this._routes[nPath]) {
-                     if (nPath.includes("*")) {
-                       for (let j = 0; j < parts.length; j++) {
-                         if (parts[j].part === "*" && parts[j].id) {
-                           req[parts[j].id] = sp[j];
-                         }
-                       }
-                     }
-                     break;
-                   } else {
-                     nPath = "";
-                   }
-                 }
-               }
+                if (_this._routes[key].wildcards && _this._routes[key].parts.length === sp.length) {
+                  qualifiedRoutes.push(key);
+                }
              }
- 
+
+             for (let i = 0; i < qualifiedRoutes.length; i++) {
+               const parts = _this._routes[qualifiedRoutes[i]].parts;
+                let partialMatch = true;
+
+               for (let l = 0; l < parts.length; l++) {
+                if (parts[l].part === sp[l]) {
+                  nPath += "/" + sp[l];
+                } else if (parts[l].id) {
+                  nPath += "/*";
+                } else {
+                  partialMatch = false;
+                  continue
+                }
+              }
+              if (partialMatch && _this._routes[nPath]) {
+                if (nPath.includes("*")) {
+                  for (let j = 0; j < parts.length; j++) {
+                    if (parts[j].part === "*" && parts[j].id) {
+                      req[parts[j].id] = sp[j];
+                    }
+                  }
+                }
+                break;
+              } else {
+                nPath = "";
+              }
+             }
+          
              if (
                !_this._routes[nPath] ||
                !_this._routes[nPath][`_${req.method.toLowerCase()}`]
              ) {
                res.NotFound({ error: 404, message: "Path not found." });
+               this._log(`REQUEST: 404 ${req.method}:${req.url}`)
+
                return;
              } else {
                path = nPath;
@@ -262,16 +276,17 @@
                       location: _this._guards[i].settings.redirect,
                     });
                     res.end();
+                    this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> 302 ${_this._guards[i].settings.redirect} )`)
                     return
                   }
                   // check for alt content return
                   if (_this._guards[i].settings.html) {
-                    let found = await fs.existsSync(_this._guards[i].settings.html)
                     if (await fs.existsSync(_this._guards[i].settings.html)) {
                       let page = await fs.readFileSync(_this._guards[i].settings.html);
                       res.writeHead(401, { "Content-Type": "text/html" });
                       res.write(page.toString());
                       res.end();
+                      this._log(`REQUEST: (DENIED) ${req.method}:${req.url} -->  ${_this._guards[i].settings.html})`)
                       return
                     }
                   }
@@ -280,6 +295,7 @@
                   res.end(
                     JSON.stringify({ error: 401, message: "Not Authenticated" })
                   );
+                  this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> (Failed API Gaurd)`)
                   return;
                  } 
 
@@ -287,6 +303,7 @@
                   res.end(
                     JSON.stringify({ error: 401, message: "Not Authenticated" })
                   );
+                  this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> (Failed API Gaurd)`)
                   return;
                } 
              }
@@ -313,6 +330,7 @@
                  res.end(
                    JSON.stringify({ error: 401, message: "Permission Denied" })
                  );
+                 this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> (Failed Method Guard)`)
                  return;
                }
              }
@@ -329,6 +347,7 @@
                res.end(
                  JSON.stringify({ error: 401, message: "Permission Denied" })
                );
+               this._log(`REQUEST: (DENIED) ${req.method}:${req.url} --> (Failed Method Guard)`)
                return;
              }
            }
@@ -349,14 +368,38 @@
            }
          }
  
+         
          // Pass ClientRequest to corresponding controller
          _this._routes[path][`_${req.method.toLowerCase()}`].fn(req, res, query);
+         this._log(`REQUEST: ${req.method}:${req.url} -->  ${req.method}:${path}:`)
        } catch (error) {
          console.error(error);
        }
      });
    }
  
+   _log(msg, req, gateway) {
+     
+    if (this._config.logging.toLowerCase() === 'debug' || this._config.logging.toLowerCase() === 'error') {
+      console.info(msg);
+      if (this._loggingOutput) {
+        this._loggingOutput.fn(msg, req)
+      }
+    }
+
+    if (this._config.logging === true && gateway) {
+      console.info(msg);
+      if (this._loggingOutput) {
+        this._loggingOutput.fn(msg, req)
+      }
+    }
+
+   }
+
+   setLogOutput(fn) {
+    this._loggingOutput = fn
+   }
+
    /**
     * Adds a single response header
     * @param {*} key
@@ -461,7 +504,8 @@
     */
    at(path) {
      try {
-       let sp = path.toLocaleLowerCase().split("/");
+
+       let sp = !this._config.keepWildcardCase ? path.toLocaleLowerCase().split("/") : path.split('/');
        let parts = [];
        let wc = false;
        let nPath = "";
@@ -473,7 +517,7 @@
            wc = true;
          } else {
            if (p !== "") {
-             parts.push({ part: p, id: null });
+             parts.push({ part: p.toLocaleLowerCase(), id: null });
              nPath = nPath + "/" + p;
            }
          }
@@ -520,9 +564,8 @@
     * @param {HTTP Response} res
     */
    async forwardRequest(request, to, res) {
-     if (this._config.logging) {
-       console.info(`PROXY From: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} to: ${to}${request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`)
-     }
+     this._log(`PROXY From: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} to: ${to}${request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`, request, true)
+
      try {
        let props = { method: request.method, headers: request.headers };
        if (request.headers["content-type"] && request.method !== "GET") {
@@ -562,9 +605,8 @@
                  if (err) {
                    res.writeHeader(500);
                    res.end();
-                   if (this._config.logging) {
-                    console.info(`ERROR: PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}, ${err}`)
-                  }
+                   this._log(`ERROR: PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}, ${err}`, request, true)
+
                    return
                  }
                  fs.unlinkSync(files[key[0]].filepath);
@@ -579,9 +621,8 @@
                    });
                    res.write(buffer);
                    res.end();
-                   if (this._config.logging) {
-                     console.info(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`)
-                   }
+                   this._log(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`, request, true)
+
                  });
  
                  return;
@@ -609,9 +650,8 @@
          res.writeHeader(response.status, headers);
          res.write(buffer);
          res.end();
-         if (this._config.logging) {
-           console.info(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`)
-         }
+         this._log(`PROXY from: ${to}${request.url} to: ${request.headers.host}${request.originalURL ? request.originalURL : request.url} - IP: ${request.headers["x-forwarded-for"] || request.connection.remoteAddress}`, request, true)
+
          return;
        }
      } catch (error) {
