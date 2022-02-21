@@ -1,6 +1,6 @@
 /**
  * Title: RestLite
- * About: A light weight http Restful API Server / Gateway.
+ * About: A light weight http Restful API Server / Gateway / Service.
  * Author: Brian Trumbly
  */
 
@@ -19,7 +19,8 @@ class RestLite {
   constructor() {
     this._server = null;
     this._routes = {};
-    (this._forwardRoutes = {}), (this._guards = []);
+    this._forwardRoutes = {};
+    this._guards = {};
     this._methodGuard = [];
     this._whiteList = [];
     this._headers = [];
@@ -203,53 +204,12 @@ class RestLite {
             !_this._routes[path] ||
             !_this._routes[path][`_${req.method.toLowerCase()}`]
           ) {
-            // If not, Check for wildcard values
-            let sp = path.toLocaleLowerCase().split(/\//g);
-            sp.shift();
-            let nPath = "";
-
-            let qualifiedRoutes = [];
-
-            for (const key in _this._routes) {
-              if (
-                _this._routes[key].wildcards &&
-                _this._routes[key].parts.length === sp.length
-              ) {
-                qualifiedRoutes.push(key);
-              }
-            }
-
-            for (let i = 0; i < qualifiedRoutes.length; i++) {
-              const parts = _this._routes[qualifiedRoutes[i]].parts;
-              let partialMatch = true;
-
-              for (let l = 0; l < parts.length; l++) {
-                if (parts[l].part === sp[l]) {
-                  nPath += "/" + sp[l];
-                } else if (parts[l].id) {
-                  nPath += "/*";
-                } else {
-                  partialMatch = false;
-                  continue;
-                }
-              }
-              if (partialMatch && _this._routes[nPath]) {
-                if (nPath.includes("*")) {
-                  for (let j = 0; j < parts.length; j++) {
-                    if (parts[j].part === "*" && parts[j].id) {
-                      req[parts[j].id] = sp[j];
-                    }
-                  }
-                }
-                break;
-              } else {
-                nPath = "";
-              }
-            }
+            let match = await parseAndMatch(req, path, _this._routes);
+            req = match.req;
 
             if (
-              !_this._routes[nPath] ||
-              !_this._routes[nPath][`_${req.method.toLowerCase()}`]
+              !_this._routes[match.path] ||
+              !_this._routes[match.path][`_${req.method.toLowerCase()}`]
             ) {
               res.NotFound({ error: 404, message: "Path not found." });
               this._log(
@@ -261,7 +221,7 @@ class RestLite {
 
               return;
             } else {
-              path = nPath;
+              path = match.path;
             }
           }
         }
@@ -275,32 +235,25 @@ class RestLite {
 
         // Run any API Guards
         if (!whiteListed) {
-          if (_this._guards.length) {
-            for (let i = 0; i < _this._guards.length; i++) {
-              let pass;
-              if (_this._guards[i].path && _this._guards[i].path !== "*") {
-                if (path.includes(_this._guards[i].path.toLowerCase())) {
-                  pass = await _this._guards[i].fn(req);
-                } else {
-                  pass = true;
-                }
-              } else {
-                pass = await _this._guards[i].fn(req);
-              }
+          if (Object.keys(_this._guards).length) {
+            let match = await parseAndMatch(req, path, _this._guards, true);
 
-              if (!pass) {
+            if (match.path.length) {
+              if (!(await _this._guards[match.path].fn(req))) {
                 // check if there settings for the guard.
-                if (_this._guards[i].settings) {
+                if (_this._guards[match.path].settings) {
                   // check for redirect
-                  if (_this._guards[i].settings.redirect) {
+                  if (_this._guards[match.path].settings.redirect) {
                     res.writeHead(302, {
-                      location: _this._guards[i].settings.redirect,
+                      location: _this._guards[match.path].settings.redirect,
                     });
                     res.end();
                     this._log(
                       `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
                         req.url
-                      } --> 302 ${_this._guards[i].settings.redirect} IP: ${
+                      } --> 302 ${
+                        _this._guards[match.path].settings.redirect
+                      } IP: ${
                         req.headers["x-forwarded-for"] ||
                         req.connection.remoteAddress
                       }`,
@@ -309,10 +262,14 @@ class RestLite {
                     return;
                   }
                   // check for alt content return
-                  if (_this._guards[i].settings.html) {
-                    if (await fs.existsSync(_this._guards[i].settings.html)) {
+                  if (_this._guards[match.path].settings.html) {
+                    if (
+                      await fs.existsSync(
+                        _this._guards[match.path].settings.html
+                      )
+                    ) {
                       let page = await fs.readFileSync(
-                        _this._guards[i].settings.html
+                        _this._guards[match.path].settings.html
                       );
                       res.writeHead(401, { "Content-Type": "text/html" });
                       res.write(page.toString());
@@ -320,7 +277,9 @@ class RestLite {
                       this._log(
                         `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
                           req.url
-                        } --> HTML ${_this._guards[i].settings.html} IP: ${
+                        } --> HTML ${
+                          _this._guards[match.path].settings.html
+                        } IP: ${
                           req.headers["x-forwarded-for"] ||
                           req.connection.remoteAddress
                         }`,
@@ -582,7 +541,37 @@ class RestLite {
    * @returns {Boolean}
    */
   setGuard(fn, path, settings) {
-    this._guards.push({ fn, path, settings });
+    let sp = !this._config.keepWildcardCase
+      ? path.toLocaleLowerCase().split("/")
+      : path.split("/");
+    let parts = [];
+    let wc = false;
+    let nPath = "";
+    sp.forEach((p) => {
+      if (p.includes(":")) {
+        p = p.substring(1);
+        parts.push({ part: "*", id: p });
+        nPath = nPath + "/*";
+        wc = true;
+      } else if (p === "*") {
+        parts.push({ part: p.toLocaleLowerCase(), id: true });
+        nPath = nPath + "/" + p;
+        wc = true;
+      } else {
+        if (p !== "") {
+          parts.push({ part: p.toLocaleLowerCase(), id: null });
+          nPath = nPath + "/" + p;
+        }
+      }
+    });
+    this._guards[nPath] = {
+      fn,
+      path: nPath,
+      wildcards: wc,
+      parts,
+      settings,
+      guard: true,
+    };
   }
 
   setMethodGuard(fn) {
@@ -614,7 +603,6 @@ class RestLite {
           }
         }
       });
-
       let controller = new APIController(nPath);
       controller.parts = parts;
       controller.wildcards = wc;
@@ -862,6 +850,56 @@ const json = (req, opts) =>
       console.error(400, "Invalid JSON", err);
     }
   });
+
+const parseAndMatch = async (req, path, routes, guard) => {
+  // If not, Check for wildcard values
+  let sp = path.toLocaleLowerCase().split(/\//g);
+  sp.shift();
+  let nPath = "";
+  let qualifiedRoutes = [];
+
+  for (const key in routes) {
+    if (!guard) {
+      if (routes[key].wildcards && routes[key].parts.length === sp.length) {
+        qualifiedRoutes.push(key);
+      }
+    } else {
+      if (routes[key].wildcards) {
+        qualifiedRoutes.push(key);
+      }
+    }
+  }
+
+  for (let i = 0; i < qualifiedRoutes.length; i++) {
+    const parts = routes[qualifiedRoutes[i]].parts;
+    let partialMatch = true;
+
+    for (let l = 0; l < parts.length; l++) {
+      if (parts[l].part === sp[l]) {
+        nPath += "/" + sp[l];
+      } else if (parts[l].id) {
+        nPath += "/*";
+      } else {
+        partialMatch = false;
+        continue;
+      }
+    }
+    if (partialMatch && routes[nPath] && !guard) {
+      if (nPath.includes("*")) {
+        for (let j = 0; j < parts.length; j++) {
+          if (parts[j].part === "*" && parts[j].id) {
+            req[parts[j].id] = sp[j];
+          }
+        }
+      }
+      break;
+    } else {
+      nPath = "";
+    }
+  }
+
+  return { path: nPath, req };
+};
 
 class GatewayPath {
   constructor(path) {
