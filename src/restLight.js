@@ -893,6 +893,8 @@ const parseAndMatch = async (req, path, routes, guard) => {
         }
       }
       break;
+    } else if (partialMatch && routes[nPath] && guard) {
+      return { path: nPath, req };
     } else {
       nPath = "";
     }
