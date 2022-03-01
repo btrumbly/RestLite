@@ -1,6 +1,6 @@
 {
   "name": "rest-lite",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "description": "A light weight NodeJS restful API Server / Gateway.",
   "keywords": ["API", "Restful"],
   "main": "index.js",

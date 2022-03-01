@@ -847,7 +847,7 @@ const json = (req, opts) =>
     try {
       return JSON.parse(body === "" ? "{}" : body);
     } catch (err) {
-      console.error(400, "Invalid JSON", err);
+      return '{}'
     }
   });
 
