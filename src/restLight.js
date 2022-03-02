@@ -242,21 +242,22 @@
  
                for (let f = 0; f < _this._guards[match.path].fn.length; f++) {
                  const gaurdCheck = _this._guards[match.path].fn[f];
+                 const gaurdSettings = _this._guards[match.path].settings[f];
  
                  if (!(await gaurdCheck(req))) {
                    // check if there settings for the guard.
-                   if (_this._guards[match.path].settings) {
+                   if (gaurdSettings) {
                      // check for redirect
-                     if (_this._guards[match.path].settings.redirect) {
+                     if (gaurdSettings.redirect) {
                        res.writeHead(302, {
-                         location: _this._guards[match.path].settings.redirect,
+                         location: gaurdSettings.redirect,
                        });
                        res.end();
                        this._log(
                          `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
                            req.url
                          } --> 302 ${
-                           _this._guards[match.path].settings.redirect
+                          gaurdSettings.redirect
                          } IP: ${
                            req.headers["x-forwarded-for"] ||
                            req.connection.remoteAddress
@@ -266,14 +267,14 @@
                        return;
                      }
                      // check for alt content return
-                     if (_this._guards[match.path].settings.html) {
+                     if (gaurdSettings.html) {
                        if (
                          await fs.existsSync(
-                           _this._guards[match.path].settings.html
+                          gaurdSettings.html
                          )
                        ) {
                          let page = await fs.readFileSync(
-                           _this._guards[match.path].settings.html
+                          gaurdSettings.html
                          );
                          res.writeHead(401, { "Content-Type": "text/html" });
                          res.write(page.toString());
@@ -282,7 +283,7 @@
                            `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
                              req.url
                            } --> HTML ${
-                             _this._guards[match.path].settings.html
+                            gaurdSettings.html
                            } IP: ${
                              req.headers["x-forwarded-for"] ||
                              req.connection.remoteAddress
@@ -572,14 +573,15 @@
        }
      });
      if (this._guards[nPath]) {
-       this._guards[nPath].fn.push(fn)
+       this._guards[nPath].fn.push(fn);
+       this._guards[nPath].settings.push(settings)
      } else {
        this._guards[nPath] = {
          fn: [fn],
          path: nPath,
          wildcards: wc,
          parts,
-         settings,
+         settings: [settings],
          guard: true,
        };
      }
