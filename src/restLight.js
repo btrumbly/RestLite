@@ -12,8 +12,9 @@
  const fetch = require("node-fetch");
  const { createDocs } = require("rest-lite/src/docs/createDocs");
  const Formidable = require("formidable");
- var FormData = require("form-data");
- var fs = require("fs");
+ const FormData = require("form-data");
+ const fs = require("fs");
+ const mime = require('mime-types')
  
  class RestLite {
    constructor() {
@@ -155,15 +156,17 @@
            this.SendResponse(data, 500);
          };
  
-         res.__proto__.Render = function (code, content) {
+         res.__proto__.Render = function (code, content, mimeType) {
            this.statusCode = code;
-           this.writeHead(this.statusCode, { "Content-Type": "text/html" });
+           this.writeHead(this.statusCode, { "Content-Type": mimeType || "text/html" });
            this.write(content);
            this.end();
          };
  
          res.__proto__.RenderFile = async function (code, path) {
            this.statusCode = code;
+           let ext = path.split('.');
+           let type = mime.lookup(ext[ext.length-1])
            try {
              if (!path) {
                this.end();
@@ -171,7 +174,7 @@
              }
  
              let file = await await fs.readFileSync(path);
-             this.writeHead(this.statusCode, { "Content-Type": "text/html" });
+             this.writeHead(this.statusCode, { "Content-Type": type || "text/html" });
              this.write(file);
              this.end();
            } catch (error) {
