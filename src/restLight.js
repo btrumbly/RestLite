@@ -9,7 +9,7 @@ const url = require("url");
 const contentType = require("content-type");
 const rawBodyMap = new WeakMap();
 const getRawBody = require("raw-body");
-const fetch = require("node-fetch");
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const { createDocs } = require("rest-lite/src/docs/createDocs");
 const Formidable = require("formidable");
 const FormData = require("form-data");
