@@ -71,7 +71,7 @@ server
 ## Server Config
 | Option      | Value         | Example | |
 | ----------- |:--------------:|:----:|---|
-| responseType | String |"json"  |``Format of requests and responses``|
+| responseType | String |"json"  |``Format of requests and responses. This is default for all responses but Render, RenderFile.`|
 | host         | String |"localhost", "127.0.0.1"  |``Address the server should bind to``|
 | port         | Number |3000 |``Port the server should listen on``    |
 | serviceName  | String |"RestLight Server" |``The name of the API or service``  |
@@ -250,6 +250,67 @@ server.forward("api/v2/form/*").to("http://localhost:7204");
 With ``.swap`` you can replcae the path with an alternative path. For the example below, the path would change from ``api/v2/form/`` to ``api/v1/legacyform/`` once it is passed on.
 ```
 server.forward("api/v2/form/*").to("http://localhost:7204").swap("api/v1/legacyform/");
+```
+
+## Fallback Actions
+Setting a fall back action is based on the HTTP response code that is returned. This works for web application like VUE JS when the router is contained in the source code and the server should serve the default HTML file. 
+In the example below on the server returning a ```404```, you can set the return action to render a 404 page of in the case to return the default ```index.html``` file. You can also set the alternative retunr HTTP Code you would like to return with the response. So on ```404``` render file ```"./dist/index.html"``` with HTTP Code ```200```.
+```
+// Return a file
+server.on(404).renderFile("./dist/index.html").with(200)
+
+// Return text
+server.on(404).render("<p>The page you have request can not be found.</p>").with(404)
+
+```
+
+## Vue JS Example
+```
+const { RestLite } = require("rest-lite");
+const server = new RestLite();
+const publicPath = `/webapp;
+
+server.setHeader("Access-Control-Allow-Origin", "*");
+server.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+
+const config = {
+  responseType: "json",
+  serviceName: "Vue Web Application",
+  port: process.env.PORT || 80,
+  logging: 'debug'
+};
+
+server.serve(config);
+
+server.on(404).renderFile("./dist/index.html").with(200)
+
+server.at(publicPath).get((req, res) => {
+  res.RenderFile(200, "./dist/index.html");
+});
+
+server.at(`${publicPath}/:uri`).get((req, res) => {
+  if (req.uri.includes(".")) {
+    res.RenderFile(200, `./dist/${req.uri}`);
+  } else {
+    res.RenderFile(200, "./dist/index.html");
+  }
+});
+
+server.at(`${publicPath}/js/:uri`).get((req, res) => {
+  res.RenderFile(200, `./dist/js/${req.uri}`);
+});
+
+server.at(`${publicPath}/css/:uri`).get((req, res) => {
+  res.RenderFile(200, `./dist/css/${req.uri}`);
+});
+
+server.at(`${publicPath}/fonts/:uri`).get((req, res) => {
+  res.RenderFile(200, `./dist/fonts/${req.uri}`);
+});
+
+server.at(`${publicPath}/img/:uri`).get((req, res) => {
+  res.RenderFile(200, `./dist/img/${req.uri}`);
+});
 ```
 
 ## API Documentation
