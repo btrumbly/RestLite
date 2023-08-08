@@ -775,7 +775,7 @@ class RestLite {
           }
         });
       } else {
-        response = await fetch(`${to}${request.url}`, props);
+        response = await fetch(`${to}${request.url}`, props);        
         let keys = response.headers.raw();
         let headers = {};
         for (const key in keys) {
@@ -790,9 +790,8 @@ class RestLite {
           }
         }
 
-        const buffer = await response.buffer();
         res.writeHeader(response.status, headers);
-        res.write(buffer);
+        res.write(this.toBuffer(await response.arrayBuffer()));
         res.end();
         this._log(
           `PROXY from: ${to}${request.url} to: ${request.headers.host}${
@@ -810,6 +809,15 @@ class RestLite {
     } catch (error) {
       console.error(error);
     }
+  }
+
+  toBuffer(arrayBuffer) {
+    const buffer = Buffer.alloc(arrayBuffer.byteLength);
+    const view = new Uint8Array(arrayBuffer);
+    for (let i = 0; i < buffer.length; ++i) {
+      buffer[i] = view[i];
+    }
+    return buffer;
   }
 
   /**
