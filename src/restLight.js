@@ -710,9 +710,23 @@ class RestLite {
         form.keepExtensions = true;
         form.parse(request, async (err, fields, files) => {
           let key = Object.keys(files);
+          let formFile;
+          let form;
+
           if (key.length) {
-            let form = new FormData();
-            form.append(key[0], fs.createReadStream(files[key[0]].filepath));
+            try {
+              form = new FormData();
+           
+              formFile = files[key[0]][0];
+  
+              form.append(key[0], fs.createReadStream(formFile.filepath));
+            } catch (error) {
+              console.error(error);
+              res.writeHeader(500);
+              res.end();
+            }
+
+
             delete request.headers["content-type"];
             delete request.headers["content-length"];
             let host = to.split(":");
@@ -743,7 +757,7 @@ class RestLite {
 
                   return;
                 }
-                fs.unlinkSync(files[key[0]].filepath);
+                fs.unlinkSync(formFile.filepath);
 
                 let buffer = "";
                 resp.on("data", (chunk) => {
@@ -808,6 +822,8 @@ class RestLite {
       }
     } catch (error) {
       console.error(error);
+      res.writeHeader(500);
+      res.end();
     }
   }
 
