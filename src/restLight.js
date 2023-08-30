@@ -232,9 +232,14 @@ class RestLite {
         }
 
         // Check for whitelist URL
-        for (let i = 0; i < _this._whiteList.length; i++) {
-          if (path === _this._whiteList[i].toLocaleLowerCase()) {
-            whiteListed = true;
+        let wlMatch = await parseAndMatch(req, path, this._whiteList, true, this._config.keepWildcardCase);
+        if (wlMatch.path.length) {
+          if (this._whiteList[wlMatch.path].method) {
+            if (this._whiteList[wlMatch.path].method === req.method.toLocaleLowerCase()) {
+              whiteListed = true
+            }
+          } else {
+            whiteListed = true
           }
         }
 
@@ -259,7 +264,7 @@ class RestLite {
                       });
                       res.end();
                       this._log(
-                        `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
+                        `REQUEST: (API GUARD (${gaurdCheck.name}) - DENIED) 401 ${req.method}:${
                           req.url
                         } --> 302 ${
                          gaurdSettings.redirect
@@ -285,7 +290,7 @@ class RestLite {
                         res.write(page.toString());
                         res.end();
                         this._log(
-                          `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
+                          `REQUEST: (API GUARD (${gaurdCheck.name}) - DENIED) 401 ${req.method}:${
                             req.url
                           } --> HTML ${
                            gaurdSettings.html
@@ -301,7 +306,7 @@ class RestLite {
                     // else just return 401
                     this._endResolve(res, 401, { error: 401, message: "Not Authenticated" })
                     this._log(
-                      `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
+                      `REQUEST: (API GUARD (${gaurdCheck.name}) - DENIED) 401 ${req.method}:${
                         req.url
                       } --> (Failed API Guard) IP: ${
                         req.headers["x-forwarded-for"] ||
@@ -313,7 +318,7 @@ class RestLite {
                   }
                   this._endResolve(res, 401, { error: 401, message: "Not Authenticated" })
                   this._log(
-                    `REQUEST: (API GUARD - DENIED) 401 ${req.method}:${
+                    `REQUEST: (API GUARD (${gaurdCheck.name}) - DENIED) 401 ${req.method}:${
                       req.url
                     } IP: ${
                       req.headers["x-forwarded-for"] ||
@@ -487,19 +492,29 @@ class RestLite {
   /**
    * Adds a single whitelist path that will bypass a API Guard
    * @param {String} headers
+   * @param {String} method - EX: GET, POST, PUT, DEL
    */
-  setWhitelist(path) {
+  setWhitelist(path, method) {
     try {
-      let sp = path.toLocaleLowerCase().split("/");
-
+      let sp = !this._config.keepWildcardCase
+      ? path.toLocaleLowerCase().split("/")
+      : path.split("/");
+      let parts = [];
+      let wc = false;
       let nPath = "";
       sp.forEach((p) => {
         if (p.includes(":")) {
           p = p.substring(1);
+          parts.push({ part: "*", id: p });
           nPath = nPath + "/*";
+          wc = true;
+        } else if (p === "*") {
+          parts.push({ part: p.toLocaleLowerCase(), id: true });
+          nPath = nPath + "/" + p;
           wc = true;
         } else {
           if (p !== "") {
+            parts.push({ part: p.toLocaleLowerCase(), id: null });
             nPath = nPath + "/" + p;
           }
         }
@@ -507,7 +522,15 @@ class RestLite {
       if (nPath[0] === '/') {
         nPath = nPath.substring(1);
       }
-      this._whiteList.push(nPath);
+
+      if (!this._whiteList[nPath]) {
+        this._whiteList[nPath] = {
+          path: nPath,
+          wildcards: wc,
+          parts,
+          method: method ? method.toLocaleLowerCase() : null
+        }
+      }
     } catch (error) {
       console.error(error);
     }
@@ -516,20 +539,30 @@ class RestLite {
   /**
    * Adds a single whitelist path that will bypass a API Guard
    * @param {Array[{String}]} headers
+   * @param {String} method - EX: GET, POST, PUT, DEL
    */
-  setWhitelists(list) {
+  setWhitelists(list, method) {
     try {
-      let wlist = [];
       list.forEach((path) => {
-        let sp = path.toLocaleLowerCase().split("/");
-        sp.shift();
+        let sp = !this._config.keepWildcardCase
+        ? path.toLocaleLowerCase().split("/")
+        : path.split("/");
+        let parts = [];
+        let wc = false;
         let nPath = "";
         sp.forEach((p) => {
           if (p.includes(":")) {
             p = p.substring(1);
+            parts.push({ part: "*", id: p });
             nPath = nPath + "/*";
+            wc = true;
+          } else if (p === "*") {
+            parts.push({ part: p.toLocaleLowerCase(), id: true });
+            nPath = nPath + "/" + p;
+            wc = true;
           } else {
             if (p !== "") {
+              parts.push({ part: p.toLocaleLowerCase(), id: null });
               nPath = nPath + "/" + p;
             }
           }
@@ -537,14 +570,16 @@ class RestLite {
         if (nPath[0] === '/') {
           nPath = nPath.substring(1);
         }
-        wlist.push(nPath);
+  
+        if (!this._whiteList[nPath]) {
+          this._whiteList[nPath] = {
+            path: nPath,
+            wildcards: wc,
+            parts,
+            method: method ? method.toLocaleLowerCase() : null
+          }
+        }
       });
-
-      if (this._whiteList.length) {
-        this._whiteList.concat(wlist);
-      } else {
-        this._whiteList = wlist;
-      }
     } catch (error) {
       console.error(error);
       if (res) {
@@ -569,6 +604,11 @@ class RestLite {
     let parts = [];
     let wc = false;
     let nPath = "";
+
+    if (!sp[0].length) {
+      sp.shift();
+    }
+
     sp.forEach((p) => {
       if (p.includes(":")) {
         p = p.substring(1);
@@ -586,6 +626,10 @@ class RestLite {
         }
       }
     });
+
+    if (nPath[0] === '/') {
+      nPath = nPath.substring(1)
+    }
 
     if (this._guards[nPath]) {
       this._guards[nPath].fn.push(fn);
@@ -918,13 +962,20 @@ const json = (req, opts) =>
   });
 
 const parseAndMatch = async (req, path, routes, guard, caseConfig) => {
-  // If not, Check for wildcard values
   let sp = !caseConfig ? path.toLocaleLowerCase().split(/\//g) : path.split(/\//g)
-  // sp.shift();
+  if (!sp[0].length) {
+    sp.shift();
+  }
+  if (path[0] === '/') {
+    path = path.substring(1)
+  }
   let nPath = "";
   let qualifiedRoutes = [];
 
   for (const key in routes) {
+    if (key === path) {
+      return {path: path, req}
+    }
     if (!guard) {
       if (routes[key].wildcards && routes[key].parts.length === sp.length) {
         qualifiedRoutes.push(key);
@@ -951,6 +1002,11 @@ const parseAndMatch = async (req, path, routes, guard, caseConfig) => {
         continue;
       }
     }
+
+    if (nPath[0] === '/') {
+      nPath = nPath.substring(1);
+    }
+
     if (partialMatch && routes[nPath] && !guard) {
       if (nPath.includes("*")) {
         for (let j = 0; j < parts.length; j++) {

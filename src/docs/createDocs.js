@@ -7,11 +7,13 @@ const getRegex = /.get\((.*?)\).?/;
 const postRegex = /.post\((.*?)\).?/;
 const putRegex = /.put\((.*?)\).?/;
 const deleteRegex = /.delete\((.*?)\).?/;
+const toRegex = /.to\((.*?)\).?/;
 const methodRegex = /\/\*\*([\s\S]*?)\*\//g;
 
 let api = {
   about: {},
   routes: [],
+  gwRoutes: [],
   methods: {},
   envs: "",
 };
@@ -41,6 +43,10 @@ const parseFile = (filename) => {
     if (content.includes(".at(")) {
       await parseAPIRoutes(content.toString());
       api.routeFile = path.normalize(filename);
+    }
+    if (content.includes(".forward(")) {
+      await parseGatewayRoutes(content.toString());
+      api.gwRouteFile = path.normalize(filename);
     }
     if (filename === "./package.json") {
       await parseAboutService(content);
@@ -154,6 +160,27 @@ const parseAPIRoutes = (routesFile) => {
         newPath.del = {};
         newPath.del.method = del ? del[1] : null;
         api.routes.push(newPath);
+      }
+    }
+    res();
+  });
+};
+
+const parseGatewayRoutes = (routesFile) => {
+  return new Promise(async (res, rej) => {
+    let rawRoutes = routesFile.split(".forward(");
+
+    rawRoutes.splice(0, 1);
+    for (let i = 0; i < rawRoutes.length; i++) {
+      const route = rawRoutes[i];
+      let path = pathRegex.exec(route);
+      if (path) {
+        let newPath = {
+          path: path[1],
+        };
+        let to = toRegex.exec(route);
+        newPath.to = to ? to[1] : null;
+        api.gwRoutes.push(newPath);
       }
     }
     res();

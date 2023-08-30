@@ -76,7 +76,7 @@ server
 | port         | Number |3000 |``Port the server should listen on``    |
 | serviceName  | String |"RestLight Server" |``The name of the API or service``  |
 | logging      | Boolean/String |true, "debug" |``"debug" - Outputs all request, "error" - Outputs only errors, true - Outputs proxy request only``
-| keepWildcardCase | Boolean | | ``true, Keeps the wildcard case as it was typed. false (Default), lowercase the wildcard``
+| keepWildcardCase | Boolean | | ``true, Keeps the wildcard and url case as it was typed. false (Default), lowercase the wildcard``
 
 ## Logging
 To output the logs of Rest-Lite to a function, use `setLogOutput()`. Your logging method should take in `(message: STRING, Request: HTTPRequestObject)`. This should be used in conjunction with the logging setting in your config. See above for more information.
@@ -122,7 +122,7 @@ server.setGuard(authenticated, '*', {redirect: 'https://google.com'});
 ```
 server.setGuard(authenticated, '*', {html: './expired.html'});
 ```
-- You can pass `*` to apply a guard to all paths.
+- You can pass `*` to apply a guard to all paths or use a wildcard variable. ex: `api/*` .
 - Note: You can only use redirect or html in the settings. Redirect hold presidents over serving alternative html content.
 
 
@@ -142,7 +142,7 @@ server.at("/path").get(fn, checkUserRole)
 ```
 If the method guard receives ```true```, the request will be pass to the method. If the method guard receives ```false```, the requester will receive a ```401``` and ```{ error: 401, message: "Permission Denied" }```
 ## Route Whitelist
-White list are routes that bypass the any guards set.
+White list are routes that bypass the any guards set. They can be by HTTP Method or path only. Whitelist do support wildcards. `/api/*`
 ```
 const RestLite = require("rest-lite");
 const server = new RestLite();
@@ -153,6 +153,19 @@ server.setWhitelists([
   "/v1/auth/check", 
   "/v1/settings/new/account", 
 ]);
+
+// Set whitelisted URL paths by method
+server.setWhitelists([
+  "/v1/auth", 
+  "/v1/auth/check", 
+  "/v1/settings/new/account", 
+], 'POST');
+
+// Set single whitelisted URL path
+server.setWhitelist("/v1/auth", 'POST');
+
+// Set single whitelisted URL path by method
+server.setWhitelist("/v1/auth", 'POST');
 
 ```
 ## Responses
