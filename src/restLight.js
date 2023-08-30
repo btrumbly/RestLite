@@ -80,6 +80,10 @@ class RestLite {
         let path = !this._config.keepWildcardCase ? u.pathname.toLowerCase() : u.pathname;
         let whiteListed = false;
 
+        if (path[0] === '/') {
+          path = path.substring(1);
+        }
+
         // Add custom response methods to http.ServerResponse
         res.__proto__.SendResponse = function (data, code) {
           if (!data) {
@@ -682,6 +686,10 @@ class RestLite {
 
       if (this._routes[nPath]) {
         throw Error(`Controller Path ${nPath}, already in use.`);
+      }
+
+      if (nPath[0] === '/') {
+        nPath = nPath.substring(1);
       }
 
       this._routes[nPath] = controller;
