@@ -586,6 +586,7 @@ class RestLite {
         }
       }
     });
+
     if (this._guards[nPath]) {
       this._guards[nPath].fn.push(fn);
       this._guards[nPath].settings.push(settings)
@@ -919,7 +920,7 @@ const json = (req, opts) =>
 const parseAndMatch = async (req, path, routes, guard, caseConfig) => {
   // If not, Check for wildcard values
   let sp = !caseConfig ? path.toLocaleLowerCase().split(/\//g) : path.split(/\//g)
-  sp.shift();
+  // sp.shift();
   let nPath = "";
   let qualifiedRoutes = [];
 
