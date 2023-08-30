@@ -77,7 +77,7 @@ class RestLite {
 
         const u = url.parse(req.url);
         const query = url.parse(req.url, true).query;
-        let path = u.pathname.toLowerCase();
+        let path = !this._config.keepWildcardCase ? u.pathname.toLowerCase() : u.pathname;
         let whiteListed = false;
 
         // Add custom response methods to http.ServerResponse
@@ -192,8 +192,9 @@ class RestLite {
         // Check for gateway routes first. These take priority of API Routes.
         if (Object.keys(_this._forwardRoutes).length) {
           for (const key in _this._forwardRoutes) {
-            if (
-              path.toLowerCase().includes(key.replace("*", "").toLowerCase())
+            if ( !this._config.keepWildcardCase ? 
+              path.toLowerCase().includes(key.replace("*", "").toLowerCase()) :
+              path.includes(key.replace("*", "").toLowerCase())
             ) {
               path = key;
               fwd = true;
@@ -208,7 +209,7 @@ class RestLite {
             !_this._routes[path] ||
             !_this._routes[path][`_${req.method.toLowerCase()}`]
           ) {
-            let match = await parseAndMatch(req, path, _this._routes);
+            let match = await parseAndMatch(req, path, _this._routes, null, this._config.keepWildcardCase);
             req = match.req;
 
             if (
@@ -240,7 +241,7 @@ class RestLite {
         // Run any API Guards
         if (!whiteListed) {
           if (Object.keys(_this._guards).length) {
-            let match = await parseAndMatch(req, path, _this._guards, true);
+            let match = await parseAndMatch(req, path, _this._guards, true, this._config.keepWildcardCase);
 
             if (match.path.length) {
 
@@ -503,7 +504,9 @@ class RestLite {
           }
         }
       });
-
+      if (nPath[0] === '/') {
+        nPath = nPath.substring(1);
+      }
       this._whiteList.push(nPath);
     } catch (error) {
       console.error(error);
@@ -531,6 +534,9 @@ class RestLite {
             }
           }
         });
+        if (nPath[0] === '/') {
+          nPath = nPath.substring(1);
+        }
         wlist.push(nPath);
       });
 
@@ -620,7 +626,7 @@ class RestLite {
           wc = true;
         } else {
           if (p !== "") {
-            parts.push({ part: p.toLocaleLowerCase(), id: null });
+            parts.push({ part: !this._config.keepWildcardCase ? p.toLocaleLowerCase() : p, id: null });
             nPath = nPath + "/" + p;
           }
         }
@@ -910,9 +916,9 @@ const json = (req, opts) =>
     }
   });
 
-const parseAndMatch = async (req, path, routes, guard) => {
+const parseAndMatch = async (req, path, routes, guard, caseConfig) => {
   // If not, Check for wildcard values
-  let sp = path.toLocaleLowerCase().split(/\//g);
+  let sp = !caseConfig ? path.toLocaleLowerCase().split(/\//g) : path.split(/\//g)
   sp.shift();
   let nPath = "";
   let qualifiedRoutes = [];
@@ -982,6 +988,7 @@ class GatewayPath {
 class APIController {
   constructor(path) {
     this._path = path.toLowerCase();
+    this._rawPath = path;
     this._get = null;
     this._post = null;
     this._patch = null;
