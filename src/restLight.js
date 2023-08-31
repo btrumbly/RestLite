@@ -193,6 +193,18 @@ class RestLite {
 
         let fwd;
 
+        // Check for whitelist URL
+        let wlMatch = await parseAndMatch(req, path, this._whiteList, true, this._config.keepWildcardCase);
+        if (wlMatch.path.length) {
+          if (this._whiteList[wlMatch.path].method) {
+            if (this._whiteList[wlMatch.path].method === req.method.toLocaleLowerCase()) {
+              whiteListed = true
+            }
+          } else {
+            whiteListed = true
+          }
+        }
+
         // Check for gateway routes first. These take priority of API Routes.
         if (Object.keys(_this._forwardRoutes).length) {
           for (const key in _this._forwardRoutes) {
@@ -232,18 +244,6 @@ class RestLite {
             } else {
               path = match.path;
             }
-          }
-        }
-
-        // Check for whitelist URL
-        let wlMatch = await parseAndMatch(req, path, this._whiteList, true, this._config.keepWildcardCase);
-        if (wlMatch.path.length) {
-          if (this._whiteList[wlMatch.path].method) {
-            if (this._whiteList[wlMatch.path].method === req.method.toLocaleLowerCase()) {
-              whiteListed = true
-            }
-          } else {
-            whiteListed = true
           }
         }
 
