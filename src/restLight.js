@@ -724,6 +724,10 @@ class RestLite {
         throw Error(`Gateway Path ${path}, already in use.`);
       }
 
+      if (path[0] === '/') {
+        path = path.substring(1);
+      }
+
       this._forwardRoutes[path] = gwr;
       return this._forwardRoutes[path];
     } catch (error) {
